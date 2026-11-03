@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Local Radiance Inference Server Controller",
+    "description": "Remote control over the LAN inference server via SSH: toggle the AMD GPU power limit, start or stop the Radiance inference service with a docker-compose file picker, pull the latest Radiance image, read amd-smi, one-click shutdown and reboot, plus a live sidebar widget with decode/prefill throughput and CPU/GPU utilization."
+  }
+}

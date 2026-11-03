@@ -1,0 +1,4 @@
+- insert:
+    - id: dsh-local-radiance-server-controller
+      name: 'dsh-local-radiance-server-controller'
+      config: {}

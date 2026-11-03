@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "本地radiance推理服务器控制器",
+    "description": "通过 SSH 远程控制局域网推理服务器：开关 AMD 显卡功率限制，选择 docker compose 配置文件启动或关闭 Radiance 推理服务，先停机再拉取 Radiance 镜像，查看 amd-smi 信息，一键关机与重启，并在侧栏实时显示解码/预填充吞吐和 CPU/GPU 占用。"
+  }
+}
