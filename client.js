@@ -58,6 +58,8 @@ window.__ModuleLoader__.load({
         refreshList: '刷新列表',
         up: '启动推理引擎',
         down: '关闭推理引擎',
+        openWeb: '打开 Web 页面',
+        engineVersion: '引擎版本',
         noFilesSelect: '（未找到 yaml 文件）',
         noFiles: '未找到 yaml 文件，请检查 Compose 目录设置或 SSH 连接后点击“刷新列表”。',
         imageTitle: '更新 Radiance 镜像',
@@ -130,6 +132,8 @@ window.__ModuleLoader__.load({
         refreshList: 'Refresh list',
         up: 'Start engine',
         down: 'Stop engine',
+        openWeb: 'Open web page',
+        engineVersion: 'Engine version',
         noFilesSelect: '(no yaml files found)',
         noFiles: 'No yaml files found. Check the compose directory or the SSH connection, then click “Refresh list”.',
         imageTitle: 'Update Radiance Image',
@@ -302,7 +306,7 @@ window.__ModuleLoader__.load({
     function sameEngine(a, b) {
       if (a === b) return true;
       if (!a || !b) return false;
-      return a.up === b.up && a.decodeTps === b.decodeTps && a.prefillTps === b.prefillTps && a.model === b.model;
+      return a.up === b.up && a.decodeTps === b.decodeTps && a.prefillTps === b.prefillTps && a.model === b.model && a.version === b.version;
     }
 
     async function pollFast() {
@@ -343,6 +347,14 @@ window.__ModuleLoader__.load({
       const [snap, setSnap] = useState(fastStore.snapshot);
       useEffect(() => subscribeFast(setSnap), []);
       return snap;
+    }
+
+    // Engine version line for the service card: rides the same 0.5 s /stats poll, no extra SSH commands.
+    function EngineVersionLine({ t }) {
+      const snap = useFastEngine();
+      const version = snap.engine && snap.engine.up ? String(snap.engine.version || '') : '';
+      if (!version) return null;
+      return h('div', { style: { fontSize: 12, opacity: 0.72 } }, `${t('engineVersion')}: ${version}`);
     }
 
     const inputStyle = {
@@ -942,6 +954,7 @@ window.__ModuleLoader__.load({
                   ? t('stateStopped')
                   : t('stateUnknown'),
             ),
+            h(EngineVersionLine, { t }),
             h(
               'div',
               { style: { display: 'flex', gap: 10, alignItems: 'end', flexWrap: 'wrap' } },
@@ -971,6 +984,7 @@ window.__ModuleLoader__.load({
                 { disabled: busy.composeDown || (statusOk === true && !activeRunning), onClick: () => runAction('composeDown', 'service') },
                 busy.composeDown ? t('running') : (statusOk === true && !activeRunning ? '✓ ' : '') + t('down'),
               ),
+              h(Button, { disabled: busy.openWeb, onClick: () => runAction('openWeb', 'service') }, busy.openWeb ? t('running') : t('openWeb')),
             ),
           ),
           // --- image update ---------------------------------------------------

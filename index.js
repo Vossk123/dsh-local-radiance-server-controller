@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { NodeSSH } from 'node-ssh';
 
 const ROUTE_PREFIX = '/dsh-local-radiance-server-controller';
@@ -161,8 +162,16 @@ async function sudoExec(settings, ssh, command) {
   }
   // node-ssh's `stdin` option closes the channel before sudo reads it, so feed the
   // password through a pipe instead; base64 keeps the plaintext out of the process argv.
+  // The payload goes through `sudo sh -c '<command>'` as ONE quoted argument: handing the
+  // raw command to sudo would break shell syntax (`cd dir && docker …` → "sudo: cd: command
+  // not found") and let `&&` bind at the outer shell level, escaping sudo for the tail.
+  // `env HOME="$HOME"` re-points HOME at the LOGIN user's home for the root shell:
+  // otherwise `cd ~/foo` inside the payload expands against /root and misses.
   const encoded = Buffer.from(`${settings.password}\n`, 'utf8').toString('base64');
-  return await exec(ssh, `printf '%s' ${quoteShell(encoded)} | base64 -d | sudo -S -p '' ${command}`);
+  return await exec(
+    ssh,
+    `printf '%s' ${quoteShell(encoded)} | base64 -d | sudo -S -p '' env HOME="$HOME" sh -c ${quoteShell(command)}`,
+  );
 }
 
 function check(result) {
@@ -302,6 +311,7 @@ function parseEngineStats(stdout) {
     return {
       up: true,
       model: String(stats.model ?? ''),
+      version: String(stats.version ?? ''),
       prefillTps: Math.round((Number(stats.prefill_tps) || 0) * 10) / 10,
       decodeTps: Math.round((Number(stats.decode_tps) || 0) * 10) / 10,
     };
@@ -403,6 +413,7 @@ const actions = {
             engine = {
               up: true,
               model: String(stats.model ?? ''),
+              version: String(stats.version ?? ''),
               prefillTps: Math.round((Number(stats.prefill_tps) || 0) * 10) / 10,
               decodeTps: Math.round((Number(stats.decode_tps) || 0) * 10) / 10,
             };
@@ -491,6 +502,32 @@ const actions = {
     long: true,
     run(settings, body) {
       return composeRun(settings, body, 'down', LONG_TIMEOUT_MS);
+    },
+  },
+
+  /** Opens the engine web UI in this machine's default browser; the port is read live from the server .env. */
+  openWeb: {
+    long: false,
+    async run(settings) {
+      const dir = requireComposeDir(settings);
+      const host = String(settings.host || '').trim();
+      if (!/^[\w.-]+$/.test(host)) throw new Error(`非法的主机地址，无法拼出 Web 地址 / Invalid host for the web URL: ${host}`);
+      const port = await withSsh(settings, async (ssh) => {
+        const result = await exec(ssh, `sed -n 's/^PORT=//p' ${dir}/.env 2>/dev/null | head -1 | tr -d '"'`);
+        const value = Number(String(result.stdout || '').trim());
+        return Number.isInteger(value) && value > 0 && value <= 65535 ? value : 8000;
+      });
+      const url = `http://${host}:${port}`;
+      const [command, commandArgs] =
+        process.platform === 'win32'
+          ? ['cmd.exe', ['/c', 'start', '', url]]
+          : process.platform === 'darwin'
+            ? ['open', [url]]
+            : ['xdg-open', [url]];
+      const child = spawn(command, commandArgs, { detached: true, stdio: 'ignore' });
+      child.on('error', () => {});
+      child.unref();
+      return { ok: true, output: url };
     },
   },
 

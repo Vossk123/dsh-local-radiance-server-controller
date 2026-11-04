@@ -18,7 +18,7 @@ Sidebar entry and the always-live metrics widget (bottom of the sidebar):
 |---|---|---|
 | SSH settings | Host / port / username / password / compose directory / default service file / image name / power limit / sudo toggle | — (saved locally to `~/.dsh/dsh-local-radiance-server-controller.json`) |
 | AMD GPU power limit | Enable limit / reset to default; shows current limit state; buttons get a ✓ and disable when the state already matches | `sudo amd-smi set -o <W>` / `sudo amd-smi reset -o` |
-| Radiance inference service | Dropdown of yaml files in the compose directory (`common.yaml` hidden), start / stop / update image (down first, then pull) | `cd <dir> && sudo docker compose -f <file> up -d / down`; `sudo docker pull <image>` |
+| Radiance inference service | Dropdown of yaml files in the compose directory (`common.yaml` hidden), start / stop / update image (down first, then pull); shows the running engine version; opens the engine web page in your default browser | `cd <dir> && sudo docker compose -f <file> up -d / down`; `sudo docker pull <image>`; web URL = `http://<host>:<PORT>` with PORT read from `<compose dir>/.env` |
 | Server diagnostics | Fetch full amd-smi output | `amd-smi` |
 | Danger zone | Shutdown / Reboot — each with its own two-click confirmation (auto-disarms after 4 s) | `sudo shutdown -h now` / `sudo reboot` |
 | Sidebar widget | One persistent row: status dot + `GPU %` `CPU %` decode/prefill t/s (shrinks to a status dot when the sidebar is collapsed) | see Live metrics below |
@@ -31,7 +31,7 @@ The whole plugin keeps exactly **one long-lived SSH connection** to the server (
 
 | Traffic | Cadence | Remote command |
 |---|---|---|
-| Engine decode/prefill | 0.5 s | `curl localhost:<PORT>/stats` (radiance Web API; PORT and API key are read on the fly from `<compose dir>/.env` — the key never leaves the server) |
+| Engine decode/prefill | 0.5 s | `curl localhost:<PORT>/stats` (radiance Web API; PORT and API key are read on the fly from `<compose dir>/.env` — the key never leaves the server; the `version` field doubles as the engine-version display on the service card) |
 | CPU / GPU utilization | 5 s | `/proc/stat` double-sample delta; `GFX_ACTIVITY` from `amd-smi metric -u` |
 | Service / power state | 20 s | `docker compose ls --format json`; `amd-smi static -l` (SOCKET vs MAX power to detect an active limit) |
 | User actions | on demand | see Features table |

@@ -18,7 +18,7 @@ English documentation: [README.md](./README.md)
 |---|---|---|
 | SSH 连接设置 | 主机 / 端口 / 用户名 / 密码 / Compose 目录 / 默认服务文件 / 镜像名 / 功率值 / 是否 sudo | —（保存到本机 `~/.dsh/dsh-local-radiance-server-controller.json`） |
 | AMD 显卡功率限制 | 开启限制 / 恢复默认，显示当前限制状态，按钮按实际状态打 ✓ 置灰 | `sudo amd-smi set -o <W>` / `sudo amd-smi reset -o` |
-| Radiance 推理服务 | 下拉列出 Compose 目录下的 yaml（自动隐藏 `common.yaml`），启动 / 关闭 / 更新镜像（先 down 再 pull） | `cd <dir> && sudo docker compose -f <file> up -d / down`；`sudo docker pull <image>` |
+| Radiance 推理服务 | 下拉列出 Compose 目录下的 yaml（自动隐藏 `common.yaml`），启动 / 关闭 / 更新镜像（先 down 再 pull）；显示运行中的引擎版本号；一键用系统默认浏览器打开引擎 Web 页面 | `cd <dir> && sudo docker compose -f <file> up -d / down`；`sudo docker pull <image>`；Web 地址 = `http://<host>:<PORT>`（PORT 从 `<compose目录>/.env` 现场读取） |
 | 服务器诊断 | 拉取 amd-smi 完整输出 | `amd-smi` |
 | 危险操作 | 关机 / 重启（均为独立二次确认，4 秒超时自动解除） | `sudo shutdown -h now` / `sudo reboot` |
 | 侧栏小部件 | 常驻一行：状态灯 + `GPU %` `CPU %` `解码 t/s` `预填 t/s`（侧栏收起时缩为状态圆点） | 见下方「实时指标」 |
@@ -31,7 +31,7 @@ English documentation: [README.md](./README.md)
 
 | 流量 | 周期 | 远端命令 |
 |---|---|---|
-| 引擎解码/预填充 | 0.5s | `curl localhost:<PORT>/stats`（radiance Web API，PORT 与 API key 从 `<compose目录>/.env` 现场读取，密钥不出服务器） |
+| 引擎解码/预填充 | 0.5s | `curl localhost:<PORT>/stats`（radiance Web API，PORT 与 API key 从 `<compose目录>/.env` 现场读取，密钥不出服务器；响应里的 `version` 字段同时驱动服务卡片上的引擎版本显示） |
 | CPU / GPU 占用 | 5s | `/proc/stat` 双采样差分；`amd-smi metric -u` 的 `GFX_ACTIVITY` |
 | 服务/功率状态 | 20s | `docker compose ls --format json`；`amd-smi static -l`（对比 SOCKET/MAX 功率判断是否已限制） |
 | 用户操作 | 按需 | 见功能表 |
