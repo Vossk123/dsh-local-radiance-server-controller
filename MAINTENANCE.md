@@ -1,0 +1,78 @@
+# MAINTENANCE.md — 维护笔记（面向维护者与 AI 编码代理）
+
+给后续接手维护本插件的人 / AI 会话：读这一份就能恢复现场。用户界面与 README 为中英双语，代码注释英文。
+
+## 项目速览
+
+- **是什么**：DSH（DeepSeek Harness）桌面插件，通过 SSH 远程控制局域网 AMD 推理服务器（docker compose 部署的 Radiance 推理引擎 + `amd-smi` 功率限制）。
+- **形态**：Cordis bundle 插件 = Host 半区 + Client 半区，详见文件结构。
+- **核心设计原则（不可妥协）**：全插件对服务器**只维持 1 条 SSH 长连接**（`sshLane`，keepalive 15s，断线自愈 + 冷却退避），所有流量走 ssh2 多路复用的 exec 通道。任何新功能都不得另开连接。
+
+## 文件结构
+
+```
+index.js          # Host 半区：HTTP 路由 + SSH 泳道 + 所有远端动作（actions 表驱动）
+client.js         # Client 半区：面板 UI（手写 h() 渲染，无 JSX）+ 侧栏图标 + 常驻指标小部件
+cordis.patch.yml  # Loader 补丁（把 client 注入 web）
+package.json      # dsh.bundle.patch + dsh.client manifest；版本号在这里
+locale/{zh,en}.json
+```
+
+## Host 端要点（index.js）
+
+- **路由**：前缀 `/dsh-local-radiance-server-controller`，`GET state/job/fast` + `POST settings/action {action,file?}`。动作全部走 `actions` 表：`{ long, run(settings, body) }`；`long: true` 进后台 job（40min 上限），client 轮询 `/job`。
+- **三条探测节奏**（都复用同一条 lane）：
+  | 周期 | 内容 | 端点 |
+  |---|---|---|
+  | 0.5s | `curl localhost:<PORT>/stats`（PORT/API key 现场读 `<dir>/.env`；响应含 `version`，驱动引擎版本显示） | `GET fast` |
+  | 5s | `/proc/stat` 双采样 CPU + `amd-smi metric -u` GPU | `action metrics` |
+  | 20s | `docker compose ls --format json` + `amd-smi static -l`（功率限制状态） | `action status` |
+- **⚠️ sudo 命令铁律**（历史事故：`sudo: cd: command not found`、`cd: can't cd to /root/...`）：所有 sudo 载荷必须经 `sudoExec()` 单点执行，其产物形如：
+  ```sh
+  printf '%s' <b64密码> | base64 -d | sudo -S -p '' env HOME="$HOME" sh -c '<复合命令>'
+  ```
+  每个部件都有存在理由：base64 = 密码不进 argv；`sh -c '...'` = `cd && ...` 复合语法不被外层 shell 拆走；`env HOME="$HOME"` = 外层登录 shell 先展开 HOME，root 壳里 `~` 才指用户家目录而非 /root。**新动作要执行任何需要 sudo 的命令，直接调用 sudoExec，不要手拼。**
+- 字符串进 shell 一律 `quoteShell()`（POSIX 单引号转义）；目录/文件名/镜像名/主机名先过 `require*` 白名单校验。
+- `openWeb` 动作：SSH 读 `.env` 的 PORT → 本机 `cmd /c start` / `open` / `xdg-open` 打开 `http://<host>:<port>`（在运行 DSH 的电脑上看浏览器）。
+
+## Client 端要点（client.js）
+
+- 非 JSX：一切用 `h(type, props, ...children)`；文案全走 DICT（zh/en 两本字典，改 UI 必须双语同改）。
+- 两个模块级 store（组件外、闭包内）：`metricsStore`（5s）与 `fastStore`（0.5s，`sameEngine` 去重后才通知订阅者——**engine 对象加新字段时记得同步加进 sameEngine 比较**，否则 UI 不刷新）。
+- 面板里的小部件（如 `EngineVersionLine`）单独订阅 store，避免整个 App 每 0.5s 重渲染。
+
+## 改代码后的生效仪式（必做，否则改动"不生效"）
+
+| 改了什么 | 生效方式 |
+|---|---|
+| `index.js`（Host） | **重启 DSH 应用**（Host 模块缓存只在 app 启动时刷新） |
+| `client.js` / `cordis.patch.yml`（Client） | 插件 toggle 关→开 + 页面刷新（若同轮已重启应用则只需刷新） |
+| `package.json` manifest | 同 Host，重启应用 |
+
+- 本开发机上 profile 里安装的是 **Junction 指向本目录**的 bundle：改完文件即"已安装"，只差生效仪式。
+- 本机重装依赖/重建 bundle 时，本地目录 bundle 必须 `pnpm install --node-linker=hoisted`，否则依赖装不上。
+
+## 修改后的最低验证
+
+用 DSH 自带 node（`%USERPROFILE%\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe`）：
+
+```
+node --check index.js
+node --check client.js
+node --input-type=module -e "await import('<本目录 index.js 的 file:// URL>')"   # 应无报错
+```
+
+需要在真实服务器上探查时（如看 `/stats` 返回结构）：**写临时 `.mjs` 脚本**（用插件 node_modules 里的 node-ssh，凭据读 `~/.dsh/dsh-local-radiance-server-controller.json`），跑完即删。不要在 PowerShell 里内联拼远端命令——转义地狱 + `$()` 会被 pwsh 吃掉。
+
+## 发版流程
+
+1. `package.json` 版本号 + 两份 README 功能表同步更新。
+2. 用户经 GitHub Desktop 提交并推送（commit message 由维护者起草）。
+3. 打注释 tag 并推送：`git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`（PowerShell 会把 git 的 stderr 误报为 NativeCommandError，看到 `* [new tag]` 即成功）。
+4. 生成预填发布链接（无 gh CLI 环境下的正解）：`https://github.com/<owner>/<repo>/releases/new?tag=...&title=...&body=...`（body 用 node `encodeURIComponent` 编码），Release notes 双语；**emoji 用字面字符**（`:plug:` 短码在 release 页不渲染），用户点 Publish 完成。
+
+## 已知历史（防止重蹈覆辙）
+
+- v1.0.0 发布带了一个 compose 动作的 sudo bug（sudoExec 直拼复合命令），v1.0.1 修复。所有复合命令路径：composeUp / composeDown / pullImage 的 down 步骤——它们共享 sudoExec，一处修全好。
+- `~` 展开陷阱、`&&` 绑外层 shell 陷阱均已由 sudoExec 的 `env HOME + sh -c` 组合封死。
+- 引擎版本号来自 `/stats` 的 `version` 字段，不要用镜像 tag/digest 冒充。
