@@ -71,6 +71,13 @@ node --input-type=module -e "await import('<本目录 index.js 的 file:// URL>'
 3. 打注释 tag 并推送：`git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`（PowerShell 会把 git 的 stderr 误报为 NativeCommandError，看到 `* [new tag]` 即成功）。
 4. 生成预填发布链接（无 gh CLI 环境下的正解）：`https://github.com/<owner>/<repo>/releases/new?tag=...&title=...&body=...`（body 用 node `encodeURIComponent` 编码），Release notes 双语；**emoji 用字面字符**（`:plug:` 短码在 release 页不渲染），用户点 Publish 完成。
 
+## 官方安装形态（普通用户从 GitHub 装本插件时）
+
+- DSH 官方安装 = 在 profile 根目录跑 `pnpm add github:<owner>/<repo>`（pnpm 11、nodeLinker: hoisted），装出来是**真实目录**，与源目录无关；tarball 按 package.json 的 `files` 打包（MAINTENANCE.md 不在内）。
+- **ssh2 / cpu-features 编译脚本关卡**：pnpm 11 默认拒绝执行依赖的安装脚本，直接以 `ERR_PNPM_IGNORED_BUILDS` 退出码 1 结束 → DSH 显示"插件安装失败"。两种解法：① 在 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds:` 映射里把 `cpu-features@x.y.z` 与 `ssh2@x.y.z` 设为 `false`（跳过编译，ssh2 走纯 JS，功能零影响——推荐）；② 批准真编译，但需要编译工具链，失败会再卡。注意 pnpm 首次拦截时会在 `allowBuilds:` 里写占位字符串 `set this to true or false`，改掉它即可。
+- **开发 junction 会挡住官方安装**：profile `node_modules` 下若残留指向别处的同名 Junction，`pnpm add` 报 `ERR_PNPM_EPERM`（UI 显示"没有写入权限"）。切官方安装前先 `cmd /c rmdir <junction>`（只删链接）。
+- **开发模式 ↔ 官方安装切换口诀**：开发模式 = 卸载官方 bundle 后在 `profiles/<p>/node_modules/` 建 junction 指向源目录；官方安装 = 先删 junction 再走 plugin_manager / UI。两者互斥，别混。
+
 ## 已知历史（防止重蹈覆辙）
 
 - v1.0.0 发布带了一个 compose 动作的 sudo bug（sudoExec 直拼复合命令），v1.0.1 修复。所有复合命令路径：composeUp / composeDown / pullImage 的 down 步骤——它们共享 sudoExec，一处修全好。
