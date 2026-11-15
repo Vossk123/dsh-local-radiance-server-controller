@@ -4,14 +4,15 @@
  * Remote control for a local-LAN Radiance inference server over SSH.
  * Exposes a package-private HTTP API on the local web server
  * (`/dsh-local-radiance-server-controller/*`, consumed by this package's
- * Client half) and executes the server operations with `node-ssh`.
+ * Client half) and executes the server operations over `./ssh-client.js`
+ * (a lifecycle-script-free wrapper around the pure-JS `@electerm/ssh2`).
  */
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { NodeSSH } from 'node-ssh';
+import { SshClient } from './ssh-client.js';
 
 const ROUTE_PREFIX = '/dsh-local-radiance-server-controller';
 const SETTINGS_PATH = path.join(os.homedir(), '.dsh', 'dsh-local-radiance-server-controller.json');
@@ -160,8 +161,9 @@ async function sudoExec(settings, ssh, command) {
       'sudo 密码为空：请先在上方「SSH 连接设置」里填写密码并保存（sudo 用的就是登录密码）/ sudo password is empty; enter and save the login password in the SSH settings above',
     );
   }
-  // node-ssh's `stdin` option closes the channel before sudo reads it, so feed the
-  // password through a pipe instead; base64 keeps the plaintext out of the process argv.
+  // execCommand only collects output — there is no stdin plumbing, and feeding
+  // the password that way raced against channel teardown anyway. Pipe it instead;
+  // base64 keeps the plaintext out of the process argv.
   // The payload goes through `sudo sh -c '<command>'` as ONE quoted argument: handing the
   // raw command to sudo would break shell syntax (`cd dir && docker …` → "sudo: cd: command
   // not found") and let `&&` bind at the outer shell level, escaping sudo for the tail.
@@ -245,7 +247,7 @@ function resetLane(lane, cooldownMs = 3000) {
   lane.coolingUntil = Date.now() + cooldownMs;
 }
 
-/** Returns a warm node-ssh client for the lane, dialing (once) if it is not connected. */
+/** Returns a warm SshClient for the lane, dialing (once) if it is not connected. */
 async function getLaneClient(lane, settings, connectTimeoutMs) {
   if (!settings.host || !settings.username) {
     throw new Error('尚未配置 SSH 连接，请先在面板填写主机、用户名和密码 / SSH is not configured; fill in the host and username in the panel first');
@@ -260,7 +262,7 @@ async function getLaneClient(lane, settings, connectTimeoutMs) {
     lane.connecting = null;
   }
   if (lane.ssh && !lane.ssh.isConnected()) {
-    // node-ssh clears its handle once ssh2 reports close/error: adopt that signal.
+    // SshClient flips isConnected() false once ssh2 reports close/error: adopt that signal.
     lane.ssh = null;
   }
   if (lane.ssh) return lane.ssh;
@@ -270,7 +272,7 @@ async function getLaneClient(lane, settings, connectTimeoutMs) {
     error.cooling = true;
     throw error;
   }
-  const ssh = new NodeSSH();
+  const ssh = new SshClient();
   const dial = (async () => {
     try {
       await withTimeout(

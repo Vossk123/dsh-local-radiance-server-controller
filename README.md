@@ -51,7 +51,7 @@ The sudo password is piped in via base64 (`base64 -d | sudo -S`); plaintext neve
 
 1. **Copy the plugin directory** anywhere on the target machine (do **not** copy `node_modules`; reinstall dependencies per machine):
    You only need `index.js`, `client.js`, `package.json`, `cordis.patch.yml`, `icon.svg`, `locale/` (`assets/` is the README screenshot, optional).
-2. **Install dependencies inside the plugin directory** (installing a local directory does not install its dependencies; skipping this fails with `Cannot find package 'node-ssh'`):
+2. **Install dependencies inside the plugin directory** (installing a local directory does not install its dependencies; skipping this fails with `Cannot find package '@electerm/ssh2'`):
    ```bash
    cd <plugin dir>
    npm install --omit=dev
@@ -98,7 +98,7 @@ dsh-local-radiance-server-controller/
 ├── icon.svg          # App icon
 ├── assets/           # README screenshots (screenshot.png, sidebar.png)
 ├── locale/{zh,en}.json
-└── package.json      # dsh.bundle / dsh.client manifest; depends on node-ssh
+└── package.json      # dsh.bundle / dsh.client manifest; depends on @electerm/ssh2 (pure-JS ssh2 fork, zero build scripts)
 ```
 
 Host endpoints (prefix route on the local DSH web server, protected by DSH login):

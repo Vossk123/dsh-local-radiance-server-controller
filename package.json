@@ -1,6 +1,6 @@
 {
   "name": "dsh-local-radiance-server-controller",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "license": "MIT",
   "keywords": ["dsh", "deepseek-harness", "cordis", "plugin", "ssh", "radiance", "amd", "docker-compose", "inference"],
@@ -12,9 +12,9 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "assets/*", "icon.svg"],
+  "files": ["index.js", "client.js", "ssh-client.js", "cordis.patch.yml", "locale/*.json", "assets/*", "icon.svg"],
   "dependencies": {
-    "node-ssh": "^13.2.0"
+    "@electerm/ssh2": "^1.23.0"
   },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },

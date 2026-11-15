@@ -51,7 +51,7 @@ sudo 密码以 base64 管道注入（`base64 -d | sudo -S`），明文不出现�
 
 1. **拷贝插件目录**到目标机器任意位置（不要拷贝 `node_modules`，跨机器请重装依赖）：
    只需 `index.js`、`client.js`、`package.json`、`cordis.patch.yml`、`icon.svg`、`locale/`（`assets/` 是 README 配图，可选）。
-2. **在插件目录内安装依赖**（本地目录安装不会自动装依赖，缺这步会报 `Cannot find package 'node-ssh'`）：
+2. **在插件目录内安装依赖**（本地目录安装不会自动装依赖，缺这步会报 `Cannot find package '@electerm/ssh2'`）：
    ```bash
    cd <插件目录>
    npm install --omit=dev
@@ -97,7 +97,7 @@ dsh-local-radiance-server-controller/
 ├── icon.svg          # 应用图标
 ├── assets/           # README 配图（screenshot.png、sidebar.png）
 ├── locale/{zh,en}.json
-└── package.json      # dsh.bundle / dsh.client 清单，依赖 node-ssh
+└── package.json      # dsh.bundle / dsh.client 清单，依赖 @electerm/ssh2（纯 JS ssh2 分支，零编译脚本）
 ```
 
 Host 对外端点（本机 DSH web server 前缀路由，受 DSH 登录鉴权保护）：
