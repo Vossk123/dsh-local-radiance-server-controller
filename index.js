@@ -408,21 +408,7 @@ const actions = {
           if (total > 0) cpu = Math.max(0, Math.min(100, Math.round((1000 * (total - idle)) / total) / 10));
         }
         const gpus = [...grab('GPU').matchAll(/GFX_ACTIVITY:\s*(\d+)\s*%/g)].map((m) => Number(m[1]));
-        let engine = { up: false };
-        try {
-          const stats = JSON.parse(grab('STATS'));
-          if (stats && !stats.error) {
-            engine = {
-              up: true,
-              model: String(stats.model ?? ''),
-              version: String(stats.version ?? ''),
-              prefillTps: Math.round((Number(stats.prefill_tps) || 0) * 10) / 10,
-              decodeTps: Math.round((Number(stats.decode_tps) || 0) * 10) / 10,
-            };
-          }
-        } catch {
-          engine = { up: false };
-        }
+        const engine = parseEngineStats(grab('STATS'));
         return { ok: true, cpu, gpus, engine };
       });
     },
