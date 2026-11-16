@@ -679,7 +679,7 @@ window.__ModuleLoader__.load({
         };
       }, []);
 
-      async function waitJob(jobId, card) {
+      async function waitJob(jobId) {
         for (let attempt = 0; attempt < 1600; attempt += 1) {
           await delay(1500);
           let job;
@@ -700,7 +700,7 @@ window.__ModuleLoader__.load({
         setOutEntry(card, { kind: 'info', title: t('running') });
         try {
           let result = await api('/action', { action, file: file || undefined, ...(extra ?? {}) });
-          if (result.started) result = await waitJob(result.jobId, card);
+          if (result.started) result = await waitJob(result.jobId);
           if (result.ok) {
             const title = action === 'shutdown' ? t('shutdownSent') : action === 'reboot' ? t('rebootSent') : t('done');
             setOutEntry(card, { kind: 'ok', title, text: String(result.output ?? ''), tall: action === 'amdSmi' });
